@@ -6,6 +6,7 @@ from pygame import Color
 from pygame.locals import *
 import pygame.freetype
 from numpy.random import choice
+import numpy
 
 
 class Cell():
@@ -25,6 +26,12 @@ class Cell():
                   Color("LAVENDER")]
         return colors[index]
 
+    def clear(self):
+        self.val = None
+
+    def increase(self):
+        self.val = self.val * 2
+
     def __str__(self):
         return str(self.val)
         # return str((self.x, self.y))
@@ -36,7 +43,8 @@ class Cell():
 class Grid():
     def __init__(self, size):
         self.size = size
-        self.grid = [[Cell(x, y) for x in range(self.size)] for y in range(self.size)]
+        # self.grid = [[Cell(x, y) for x in range(self.size)] for y in range(self.size)]
+        self.grid = numpy.array([[Cell(x, y) for x in range(self.size)] for y in range(self.size)])
         self.spawn()
         self.spawn()
 
@@ -53,73 +61,52 @@ class Grid():
         cell.val = choice([2, 4], 1, p=[0.75, 0.25])[0]
 
     def update(self, event):
+        horizontal_dir = 1
+        vertical_dir = 1
+
         if event.key == K_UP:
-            self.key_up()
+            vertical_dir = 1
         elif event.key == K_DOWN:
-            self.key_down()
+            vertical_dir = -1
         elif event.key == K_LEFT:
-            self.key_left()
+            horizontal_dir = 1
         elif event.key == K_RIGHT:
-            self.key_right()
+            horizontal_dir = -1
+
+        i_start = 0
+        i_end = self.size - 1
+        j_start = 0
+        j_end = self.size - 1
+
+        for j in range(j_start, j_end + 1, horizontal_dir):
+            i = i_start
+
+            while i < i_end:
+                val = self.grid[i][j].val
+                if (val is not None) and (val is self.grid[i + vertical_dir][j].val):
+                    self.grid[i + vertical_dir][j].clear()
+                    self.grid[i][j].increase()
+                i = i + vertical_dir
+
+            # TODO: remove whitespace after while loop
+            col = self.grid[:, j]
+            col = [elem for elem in col if elem.val is not None]
+
+            x=len(col)
+            while len(col) < self.size:
+                col.append(Cell(x,j))
+                x=x+1
+            self.grid[:][j]=col
+
+        # TODO: should only spawn if anything moved!
         self.spawn()
 
-        # Check event type and call the appropriate function
-
-    def key_up(self):
-        for x in range(0, self.size, 1):
-            for y in range(0, self.size, 1):
-                val = self.grid[x][y].val
-                if val is not None:
-                    while x > 0 and self.grid[x - 1][y].val is None:
-                        self.grid[x][y].val = None
-                        x = x - 1
-                        self.grid[x][y].val = val
-
-                    if x > 0 and self.grid[x - 1][y].val == val:
-                        self.grid[x - 1][y].val = val * 2
-                        self.grid[x][y].val = None
-
-    def key_down(self):
-        down_up = True
-        left_right = True
-
-
-
-
-        for x in range(self.size - 1, -1, -1):
-            for y in range(0,self.size,1):
-                print((x, y))
-                val = self.grid[x][y].val
-                if val is not None:
-                    while x < self.size-1 and self.grid[x + 1][y].val is None:
-                        self.grid[x][y].val = None
-                        x = x + 1
-                        self.grid[x][y].val = val
-
-                    if x < self.size-1 and self.grid[x + 1][y].val == val:
-                        self.grid[x + 1][y].val = val * 2
-                        self.grid[x][y].val = None
-
-    def key_left(self):
-        print("left")
-        '''
-        for row in grid:
-            prev = 
-            for cell in row:
-                if cell is not None and prev==-1: prev=cell, continue
-                if cell == prev merge cell+prev
-        '''
-
     def __str__(self):
-        # return '\n'.join(['\t'.join([str(cell) for cell in row]) for row in self.grid])
         s = [[str(e) for e in row] for row in self.grid]
         lens = [max(map(len, col)) for col in zip(*s)]
         fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
         table = [fmt.format(*row) for row in s]
         return '\n'.join(table)
-
-    def key_right(self):
-        print("right")
 
 
 def run_game():
