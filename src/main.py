@@ -1,4 +1,3 @@
-import pygame
 import sys
 from random import choice
 
@@ -8,15 +7,15 @@ from pygame.locals import *
 
 from game import Game
 
-DIRECTIONS_DICT = {276: "LEFT", 275: "RIGHT", 273: "UP", 274: "DOWN"}  # Only for printing purposes
-DIRECTIONS = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
+MOVES_DICT = {276: "LEFT", 275: "RIGHT", 273: "UP", 274: "DOWN"}  # Only for printing purposes
+MOVES = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
 
 
 def expectimax(grid, agent, depth=4):
-    if grid.gameover():
+    if grid.game_over():
         return [-1, None]
-    if depth == 0 or grid.victory():
-        return [grid.score, None]
+    if depth == 0 or grid.is_goal_state():
+        return grid.score, None
 
     if agent == 'BOARD':
         score = 0
@@ -33,25 +32,25 @@ def expectimax(grid, agent, depth=4):
             new_grid = grid.clone()
             new_grid.spawn(4, tile)
             score += 0.25 * expectimax(new_grid, 'PLAYER', depth - 1)[0]
-        return [score / len(grid.empty_tiles()), None]
+        return score / len(grid.empty_tiles()), None
+
     else:
         score = 0
-        best_dir = None
-        for dir in [K_UP, K_DOWN, K_LEFT, K_RIGHT]:
+        best_move = None
+        for move in [K_UP, K_DOWN, K_LEFT, K_RIGHT]:
             new_grid = grid.clone()
-            if new_grid.move_is_possible(dir):
-                new_grid.update(dir)
+            if new_grid.move_is_possible(move):
+                new_grid.update(move)
 
                 res = expectimax(new_grid, 'BOARD', depth - 1)
                 if res[0] >= score:
                     score = res[0]
-                    best_dir = dir
+                    best_move = move
 
-        return [score, best_dir]
+        return score, best_move
 
 
 def run_game():
-    clock = pygame.time.Clock()
     game = Game()
     expectimax_enabled = False
 
@@ -68,11 +67,11 @@ def run_game():
         if event.type == QUIT:
             sys.exit()
         elif event.type == KEYDOWN:
-            if event.key in DIRECTIONS:
+            if event.key in MOVES:
+                old_grid = game.grid.clone()
+
                 if game.grid.update(event.key):  # Move successful
-                    game.draw_grid()
-                    pygame.display.flip()
-                    clock.tick(60)
+                    game.draw_grid(old_grid)
                 else:  # Game over
                     continue  # FIXME should return score
                     # return grid.score
@@ -80,10 +79,6 @@ def run_game():
                 expectimax_enabled = not expectimax_enabled  # ^=True
 
 
-def main():
+if __name__ == "__main__":
     while True:
         print(run_game())
-
-
-if __name__ == "__main__":
-    main()

@@ -20,6 +20,7 @@ def get_color(val):
 class Game:
     def __init__(self):
         pygame.init()
+        self.clock = pygame.time.Clock()
 
         # TODO: Prompt user for grid size (instead of hardcoded 4x4)
         self.display_size = 640
@@ -37,10 +38,10 @@ class Game:
         pygame.event.set_allowed(QUIT)
         pygame.event.clear()
 
-        self.draw_grid()
+        self.draw_grid(self.grid)
         pygame.display.flip()
 
-    def draw_grid(self):
+    def draw_grid(self, old_grid):
         # Defines cell w. spacing between cells
         border_size = 5
         cell_size = (self.display_size - border_size * (self.grid.size - 1)) / self.grid.size
@@ -61,3 +62,5 @@ class Game:
                     _y = y * cell_spacing + (cell_size - text_height) / 2
                     _x = x * cell_spacing + (cell_size - text_width) / 2
                     self.screen.blit(text, (_x, _y))
+        pygame.display.flip()
+        self.clock.tick(60)
