@@ -1,9 +1,10 @@
-import math
+from copy import deepcopy
+
 from pygame.locals import *
-import sys
-from collections import defaultdict
 from random import randrange, choice
-from copy import copy, deepcopy
+
+from pygame.locals import *
+
 
 def transpose(grid):
     return [list(row) for row in zip(*grid)]
