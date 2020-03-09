@@ -27,26 +27,22 @@ class Grid:
     def clone(self):
         return Grid(self.size, self.score, deepcopy(self.grid))
 
-    def empty_tiles(self):
+    def free_tiles(self):
         return [(i, j) for i in range(self.size) for j in range(self.size) if self.grid[i][j] == 0]
 
     def spawn(self, val=None, pos=None):
         # Spawn number (random if None) on empty cell in grid
         # 75% chance for 2, 25% chance for 4
-
-        if pos is None and val is None:
-            val = 2 if randrange(100) <= 75 else 4
-            (i, j) = choice(self.empty_tiles())
-            self.grid[i][j] = val
-        else:
-            i, j = pos
-            self.grid[i][j] = val
+        val = val if val is not None else 2 if randrange(100) <= 75 else 4
+        i, j = pos if pos is not None else choice(self.free_tiles())
+        self.grid[i][j] = val
 
     def update(self, move):
         def move_row_left(row):
             def tighten(_row):
                 # TODO: omskriv + giv credit
                 # TODO: https://github.com/Fennay/python-study/blob/master/2048/2048.py
+
                 new_row = [i for i in _row if i != 0]
                 new_row += [0 for i in range(len(_row) - len(new_row))]
                 return new_row

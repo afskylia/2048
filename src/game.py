@@ -48,19 +48,17 @@ class Game:
         cell_spacing = cell_size + border_size
 
         # Draw each cell in the grid
-        for y in range(self.grid.size):
-            row = self.grid.grid[y]
-
-            for x in range(self.grid.size):
-                val = row[x]
-                rect = pygame.Rect(x * cell_spacing, y * cell_spacing, cell_size, cell_size)
+        for x in range(self.grid.size):
+            for y in range(self.grid.size):
+                val = self.grid.grid[x][y]
+                rect = pygame.Rect(y * cell_spacing, x * cell_spacing, cell_size, cell_size)
                 pygame.draw.rect(self.screen, get_color(val), rect)
 
                 if val != 0:
                     text = self.font.render(str(val), False, Color("BLACK"))
                     text_width, text_height = self.font.size(str(val))
-                    _y = y * cell_spacing + (cell_size - text_height) / 2
-                    _x = x * cell_spacing + (cell_size - text_width) / 2
+                    _y = x * cell_spacing + (cell_size - text_height) / 2
+                    _x = y * cell_spacing + (cell_size - text_width) / 2
                     self.screen.blit(text, (_x, _y))
         pygame.display.flip()
         self.clock.tick(60)
