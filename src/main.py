@@ -1,125 +1,124 @@
 import math
-
 import pygame
 import sys
 from pygame import Color
 from pygame.locals import *
 import pygame.freetype
-from numpy.random import choice
+from collections import defaultdict
+from random import randrange, choice
 
 
-class Cell():
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-        self.val = None
+def get_color(val):
+    if val == 0:
+        return Color("GAINSBORO")
 
-    def get_color(self):
-        if self.val is None:
-            return Color("GAINSBORO")
-
-        # [2, 4, 8, 16, 32, 64, 128,256,512,1024,2048]
-        index = int(math.log(self.val, 2)) - 1
-        colors = [Color("IVORY"), Color("LEMONCHIFFON"), Color("SANDYBROWN"), Color("CORAL"), Color("RED"),
-                  Color("YELLOW"), Color("ORANGE"), Color("LIMEGREEN"), Color("LAVENDER"), Color("LAVENDER"),
-                  Color("LAVENDER")]
-        return colors[index]
-
-    def __str__(self):
-        return str(self.val)
-        # return str((self.x, self.y))
-
-    def __repr__(self):
-        return self.__str__()
+    # [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+    index = int(math.log(val, 2)) - 1
+    colors = [Color("IVORY"), Color("LEMONCHIFFON"), Color("SANDYBROWN"), Color("CORAL"), Color("RED"),
+              Color("YELLOW"), Color("ORANGE"), Color("LIMEGREEN"), Color("LAVENDER"), Color("LAVENDER"),
+              Color("LAVENDER")]
+    return colors[index]
 
 
-class Grid():
+def transpose(grid):
+    return [list(row) for row in zip(*grid)]
+
+
+def invert(grid):
+    return [row[::-1] for row in grid]
+
+
+class Grid:
     def __init__(self, size):
         self.size = size
-        self.grid = [[Cell(x, y) for x in range(self.size)] for y in range(self.size)]
+        self.score = 0
+        # self.grid = numpy.array([[0 for x in range(self.size)] for y in range(self.size)])
+        self.grid = [[0 for i in range(self.size)] for j in range(self.size)]
         self.spawn()
         self.spawn()
 
     def spawn(self):
         # Spawn number on random empty cell in grid
         # 75% chance for 2, 25% chance for 4
-        available_cells = []
-        for row in self.grid:
-            for c in row:
-                if c.val is None:
-                    available_cells.append(c)
-
-        cell = choice(available_cells)
-        cell.val = choice([2, 4], 1, p=[0.75, 0.25])[0]
+        new_val = 2 if randrange(100) <= 75 else 4
+        (i, j) = choice([(i, j) for i in range(self.size) for j in range(self.size) if self.grid[i][j] == 0])
+        self.grid[i][j] = new_val
 
     def update(self, event):
-        if event.key == K_UP:
-            self.key_up()
-        elif event.key == K_DOWN:
-            self.key_down()
-        elif event.key == K_LEFT:
-            self.key_left()
-        elif event.key == K_RIGHT:
-            self.key_right()
-        self.spawn()
+        def move_row_left(row):
+            def tighten(_row):
+                new_row = [i for i in _row if i != 0]
+                new_row += [0 for i in range(len(_row) - len(new_row))]
+                return new_row
 
-        # Check event type and call the appropriate function
+            def merge(_row):
+                pair = False
+                new_row = []
+                for i in range(len(_row)):
+                    if pair:
+                        new_row.append(2 * _row[i])
+                        self.score += 2 * _row[i]
+                        pair = False
+                    else:
+                        if i + 1 < len(_row) and _row[i] == _row[i + 1]:
+                            pair = True
+                            new_row.append(0)
+                        else:
+                            new_row.append(_row[i])
+                return new_row
 
-    def key_up(self):
-        for x in range(0, self.size, 1):
-            for y in range(0, self.size, 1):
-                val = self.grid[x][y].val
-                if val is not None:
-                    while x > 0 and self.grid[x - 1][y].val is None:
-                        self.grid[x][y].val = None
-                        x = x - 1
-                        self.grid[x][y].val = val
+            return tighten(merge(tighten(row)))
 
-                    if x > 0 and self.grid[x - 1][y].val == val:
-                        self.grid[x - 1][y].val = val * 2
-                        self.grid[x][y].val = None
+        moves = {K_LEFT: lambda grid: [move_row_left(row) for row in grid]}
+        moves[K_RIGHT] = lambda grid: invert(moves[K_LEFT](invert(grid)))
+        moves[K_UP] = lambda grid: transpose(moves[K_LEFT](transpose(grid)))
+        moves[K_DOWN] = lambda grid: transpose(moves[K_RIGHT](transpose(grid)))
 
-    def key_down(self):
-        down_up = True
-        left_right = True
+        if event.key in moves:
+            if self.move_is_possible(event.key):
+                self.grid = moves[event.key](self.grid)
+                self.spawn()
+                return True
+            else:
+                return False
 
+    def move_is_possible(self, dir):
+        def row_is_left_movable(row):
+            def change(i):  # true if there'll be change in i-th tile
+                if row[i] == 0 and row[i + 1] != 0:  # Move
+                    return True
+                if row[i] != 0 and row[i + 1] == row[i]:  # Merge
+                    return True
+                return False
 
+            return any(change(i) for i in range(len(row) - 1))
 
+        check = {K_LEFT: lambda field: any(row_is_left_movable(row) for row in field)}
+        check[K_RIGHT] = lambda field: check[K_LEFT](invert(field))
+        check[K_UP] = lambda field: check[K_LEFT](transpose(field))
+        check[K_DOWN] = lambda field: check[K_RIGHT](transpose(field))
 
-        for x in range(self.size - 1, -1, -1):
-            for y in range(0,self.size,1):
-                print((x, y))
-                val = self.grid[x][y].val
-                if val is not None:
-                    while x < self.size-1 and self.grid[x + 1][y].val is None:
-                        self.grid[x][y].val = None
-                        x = x + 1
-                        self.grid[x][y].val = val
+        if dir in check:
+            return check[dir](self.grid)
+        else:
+            return False
 
-                    if x < self.size-1 and self.grid[x + 1][y].val == val:
-                        self.grid[x + 1][y].val = val * 2
-                        self.grid[x][y].val = None
+    def victory(self):
+        return any(any(i >= 2048 for i in row) for row in self.grid)
 
-    def key_left(self):
-        print("left")
-        '''
-        for row in grid:
-            prev = 
-            for cell in row:
-                if cell is not None and prev==-1: prev=cell, continue
-                if cell == prev merge cell+prev
-        '''
+    def gameover(self):
+        return not any(self.move_is_possible(move) for move in [K_UP, K_DOWN, K_RIGHT, K_LEFT])
+
+    def __getitem__(self, pos):
+        x, y = pos
+        return self.grid[x][y]
 
     def __str__(self):
-        # return '\n'.join(['\t'.join([str(cell) for cell in row]) for row in self.grid])
         s = [[str(e) for e in row] for row in self.grid]
         lens = [max(map(len, col)) for col in zip(*s)]
         fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
         table = [fmt.format(*row) for row in s]
         return '\n'.join(table)
-
-    def key_right(self):
-        print("right")
 
 
 def run_game():
@@ -146,18 +145,20 @@ def run_game():
         cell_spacing = cell_size + border_size
 
         # Draw each cell in the grid
-        for row in grid.grid:
-            for cell in row:
-                rect = pygame.Rect(cell.x * cell_spacing, cell.y * cell_spacing, cell_size, cell_size)
+        for y in range(grid.size):
+            row = grid.grid[y]
 
-                pygame.draw.rect(screen, cell.get_color(), rect)
+            for x in range(grid.size):
+                val = row[x]
+                rect = pygame.Rect(x * cell_spacing, y * cell_spacing, cell_size, cell_size)
+                pygame.draw.rect(screen, get_color(val), rect)
 
-                if cell.val is not None:
-                    text = font.render(str(cell.val), False, Color("BLACK"))
-                    text_width, text_height = font.size(str(cell.val))
-                    x = cell.x * cell_spacing + (cell_size - text_width) / 2
-                    y = cell.y * cell_spacing + (cell_size - text_height) / 2
-                    screen.blit(text, (x, y))
+                if val != 0:
+                    text = font.render(str(val), False, Color("BLACK"))
+                    text_width, text_height = font.size(str(val))
+                    _y = y * cell_spacing + (cell_size - text_height) / 2
+                    _x = x * cell_spacing + (cell_size - text_width) / 2
+                    screen.blit(text, (_x, _y))
 
     # Filter events to enqueue - we only care if the user presses an arrow key
     pygame.event.set_blocked(None)
@@ -168,21 +169,32 @@ def run_game():
     draw_grid()
     pygame.display.flip()
     while True:
-        # TODO: Block until user does something
         event = pygame.event.wait()
-
         if event.type == QUIT:
             sys.exit()
         elif event.type == KEYDOWN:
-            grid.update(event)
-        else:
+            if grid.update(event):  # move successful
+                draw_grid()
+                pygame.display.flip()
+
+                if grid.victory():
+                    return grid.score, True
+                elif grid.gameover():
+                    return grid.score, False
+                else:
+                    clock.tick(60)
+        else:  # unexpected event type
             continue
 
-        draw_grid()
-        print(str(grid))
-        pygame.display.flip()
-        clock.tick(60)
+
+def main():
+    while True:
+        score, victory = run_game()
+        if victory:
+            print("You won! Score:", score)
+        else:
+            print("Game over! Score:", score)
 
 
 if __name__ == "__main__":
-    run_game()
+    main()
