@@ -26,7 +26,7 @@ def get_color(val):
     return colors[index]
 
 
-def expectimax(grid, agent, depth=4):
+def expectimax(grid, agent, depth=5):
     if grid.gameover():
         return [-1, None]
     if depth == 0 or grid.victory():
@@ -42,11 +42,11 @@ def expectimax(grid, agent, depth=4):
             new_grid = grid.clone()
             new_grid.spawn(2, tile)
 
-            score += 0.75*expectimax(new_grid, 'PLAYER', depth-1)[0]
+            score += 0.9*expectimax(new_grid, 'PLAYER', depth-1)[0]
 
             new_grid = grid.clone()
             new_grid.spawn(4, tile)
-            score += 0.25*expectimax(new_grid, 'PLAYER', depth-1)[0]
+            score += 0.1*expectimax(new_grid, 'PLAYER', depth-1)[0]
         return [score/len(grid.empty_tiles()), None]
     else:
         score = 0

@@ -37,7 +37,7 @@ class Grid:
         # 75% chance for 2, 25% chance for 4
 
         if pos is None and val is None:
-            val = 2 if randrange(100) <= 75 else 4
+            val = 2 if randrange(100) <= 90 else 4
             (i, j) = choice(self.empty_tiles())
             self.grid[i][j] = val
         else:
