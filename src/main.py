@@ -134,7 +134,7 @@ def run_game():
 
     grid = Grid(4)
     pygame.font.init()
-    font = pygame.font.Font("../res/m5x7.ttf", 72)
+    font = pygame.font.Font(r"res/m5x7.ttf", 72)
 
     # TODO: Scale font size - necessary if we're gonna make nxn instead of 4x4
 
