@@ -6,6 +6,11 @@ from pygame.locals import *
 import pygame.freetype
 from collections import defaultdict
 from random import randrange, choice
+from copy import copy, deepcopy
+from grid import Grid
+
+DIRECTIONS_DICT = {276: "LEFT", 275: "RIGHT", 273: "UP", 274: "DOWN"}
+DIRECTIONS = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
 
 
 def get_color(val):
@@ -15,110 +20,48 @@ def get_color(val):
     # [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
     index = int(math.log(val, 2)) - 1
     colors = [Color("IVORY"), Color("LEMONCHIFFON"), Color("SANDYBROWN"), Color("CORAL"), Color("RED"),
-              Color("YELLOW"), Color("ORANGE"), Color("LIMEGREEN"), Color("LAVENDER"), Color("LAVENDER"),
+              Color("YELLOW"), Color("ORANGE"), Color(
+                  "LIMEGREEN"), Color("LAVENDER"), Color("LAVENDER"),
               Color("LAVENDER")]
     return colors[index]
 
 
-def transpose(grid):
-    return [list(row) for row in zip(*grid)]
+def expectimax(grid, agent, depth=4):
+    if grid.gameover():
+        return [-1, None]
+    if depth == 0 or grid.victory():
+        return [grid.score, None]
 
+    if agent == 'BOARD':
+        score = 0
 
-def invert(grid):
-    return [row[::-1] for row in grid]
+        if len(grid.empty_tiles()) == 0:
+            return [0, None]
 
+        for tile in grid.empty_tiles():
+            new_grid = grid.clone()
+            new_grid.spawn(2, tile)
 
-class Grid:
-    def __init__(self, size):
-        self.size = size
-        self.score = 0
-        # self.grid = numpy.array([[0 for x in range(self.size)] for y in range(self.size)])
-        self.grid = [[0 for i in range(self.size)] for j in range(self.size)]
-        self.spawn()
-        self.spawn()
+            score += 0.75*expectimax(new_grid, 'PLAYER', depth-1)[0]
 
-    def spawn(self):
-        # Spawn number on random empty cell in grid
-        # 75% chance for 2, 25% chance for 4
-        new_val = 2 if randrange(100) <= 75 else 4
-        (i, j) = choice([(i, j) for i in range(self.size) for j in range(self.size) if self.grid[i][j] == 0])
-        self.grid[i][j] = new_val
+            new_grid = grid.clone()
+            new_grid.spawn(4, tile)
+            score += 0.25*expectimax(new_grid, 'PLAYER', depth-1)[0]
+        return [score/len(grid.empty_tiles()), None]
+    else:
+        score = 0
+        best_dir = None
+        for dir in [K_UP, K_DOWN, K_LEFT, K_RIGHT]:
+            new_grid = grid.clone()
+            if new_grid.move_is_possible(dir):
+                new_grid.update(dir)
 
-    def update(self, event):
-        def move_row_left(row):
-            def tighten(_row):
-                new_row = [i for i in _row if i != 0]
-                new_row += [0 for i in range(len(_row) - len(new_row))]
-                return new_row
+                res = expectimax(new_grid, 'BOARD', depth-1)
+                if res[0] >= score:
+                    score = res[0]
+                    best_dir = dir
 
-            def merge(_row):
-                pair = False
-                new_row = []
-                for i in range(len(_row)):
-                    if pair:
-                        new_row.append(2 * _row[i])
-                        self.score += 2 * _row[i]
-                        pair = False
-                    else:
-                        if i + 1 < len(_row) and _row[i] == _row[i + 1]:
-                            pair = True
-                            new_row.append(0)
-                        else:
-                            new_row.append(_row[i])
-                return new_row
-
-            return tighten(merge(tighten(row)))
-
-        moves = {K_LEFT: lambda grid: [move_row_left(row) for row in grid]}
-        moves[K_RIGHT] = lambda grid: invert(moves[K_LEFT](invert(grid)))
-        moves[K_UP] = lambda grid: transpose(moves[K_LEFT](transpose(grid)))
-        moves[K_DOWN] = lambda grid: transpose(moves[K_RIGHT](transpose(grid)))
-
-        if event.key in moves:
-            if self.move_is_possible(event.key):
-                self.grid = moves[event.key](self.grid)
-                self.spawn()
-                return True
-            else:
-                return False
-
-    def move_is_possible(self, dir):
-        def row_is_left_movable(row):
-            def change(i):  # true if there'll be change in i-th tile
-                if row[i] == 0 and row[i + 1] != 0:  # Move
-                    return True
-                if row[i] != 0 and row[i + 1] == row[i]:  # Merge
-                    return True
-                return False
-
-            return any(change(i) for i in range(len(row) - 1))
-
-        check = {K_LEFT: lambda field: any(row_is_left_movable(row) for row in field)}
-        check[K_RIGHT] = lambda field: check[K_LEFT](invert(field))
-        check[K_UP] = lambda field: check[K_LEFT](transpose(field))
-        check[K_DOWN] = lambda field: check[K_RIGHT](transpose(field))
-
-        if dir in check:
-            return check[dir](self.grid)
-        else:
-            return False
-
-    def victory(self):
-        return any(any(i >= 2048 for i in row) for row in self.grid)
-
-    def gameover(self):
-        return not any(self.move_is_possible(move) for move in [K_UP, K_DOWN, K_RIGHT, K_LEFT])
-
-    def __getitem__(self, pos):
-        x, y = pos
-        return self.grid[x][y]
-
-    def __str__(self):
-        s = [[str(e) for e in row] for row in self.grid]
-        lens = [max(map(len, col)) for col in zip(*s)]
-        fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
-        table = [fmt.format(*row) for row in s]
-        return '\n'.join(table)
+        return [score, best_dir]
 
 
 def run_game():
@@ -133,6 +76,7 @@ def run_game():
     screen.fill(bg_color)
 
     grid = Grid(4)
+
     pygame.font.init()
     font = pygame.font.Font(r"res/m5x7.ttf", 72)
 
@@ -150,7 +94,8 @@ def run_game():
 
             for x in range(grid.size):
                 val = row[x]
-                rect = pygame.Rect(x * cell_spacing, y * cell_spacing, cell_size, cell_size)
+                rect = pygame.Rect(x * cell_spacing, y *
+                                   cell_spacing, cell_size, cell_size)
                 pygame.draw.rect(screen, get_color(val), rect)
 
                 if val != 0:
@@ -168,32 +113,35 @@ def run_game():
 
     draw_grid()
     pygame.display.flip()
+    expectimax_enabled = False
+
     while True:
-        event = pygame.event.wait()
+
+        if expectimax_enabled and not pygame.event.peek():
+            event = pygame.event.Event(KEYDOWN)
+            event.key = expectimax(grid, 'PLAYER')[1]
+            if event.key is None:
+                event.key = choice([K_UP, K_DOWN, K_LEFT, K_RIGHT])
+        else:
+            event = pygame.event.wait()
+            
         if event.type == QUIT:
             sys.exit()
         elif event.type == KEYDOWN:
-            if grid.update(event):  # move successful
-                draw_grid()
-                pygame.display.flip()
-
-                if grid.victory():
-                    return grid.score, True
-                elif grid.gameover():
-                    return grid.score, False
-                else:
+            if event.key in DIRECTIONS:
+                if grid.update(event.key):  # Move successful
+                    draw_grid()
+                    pygame.display.flip()
                     clock.tick(60)
-        else:  # unexpected event type
-            continue
+                else:   # Game over
+                    return grid.score
+            else:   # Toggle expectimax
+                expectimax_enabled = not expectimax_enabled  # ^=True
 
 
 def main():
     while True:
-        score, victory = run_game()
-        if victory:
-            print("You won! Score:", score)
-        else:
-            print("Game over! Score:", score)
+        print(run_game())
 
 
 if __name__ == "__main__":
