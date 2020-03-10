@@ -13,7 +13,7 @@ def get_color(val):
     # [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
     index = int(math.log(val, 2)) - 1
     colors = [Color("IVORY"), Color("LEMONCHIFFON"), Color("SANDYBROWN"), Color("CORAL"), Color("RED"), Color("YELLOW"),
-              Color("ORANGE"), Color("LIMEGREEN"), Color("PINK"), Color("BLUE"), Color("GREEN")]
+              Color("ORANGE"), Color("LIMEGREEN"), Color("PINK"), Color("BLUE"), Color("GREEN"), Color("GREEN"), Color("GREEN"), Color("GREEN"), Color("GREEN")]
     return colors[index]
 
 
