@@ -1,3 +1,4 @@
+from functools import reduce
 import sys
 from random import choice
 from time import sleep
@@ -12,56 +13,34 @@ MOVES_DICT = {276: "LEFT", 275: "RIGHT", 273: "UP", 274: "DOWN"}  # Only for pri
 MOVES = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
 
 
-def neighbors_penalty(grid, pos):
-    x, y = pos
-    next_x, next_y = pos
-    penalty = 0
+def grid_penalty(grid):
+    def row_penalty(row):
+        _penalty = 0
+        for x in range(len(row)):
+            next_x = x
+            while next_x < len(row) - 1:
+                next_x += 1
+                if row[next_x] != 0:
+                    _penalty += abs(row[x] - row[next_x])
+                    break
+        return _penalty
 
-    while next_x > 0:
-        next_x -= 1
-        if grid.grid[next_x][next_y] != 0:
-            penalty += abs(grid.grid[x][y] - grid.grid[next_x][next_y])
-            break
-    next_x = x
+    def row_func(_grid): return sum([row_penalty(row) for row in _grid])
+    def row_inv(_grid): return row_func([row[::-1] for row in _grid])
+    def col(_grid): return row_func([list(row) for row in zip(*_grid)])
+    def col_inv(_grid): return row_inv([list(row) for row in zip(*_grid)])
 
-    while next_x < grid.size - 1:
-        next_x += 1
-        if grid.grid[next_x][next_y] != 0:
-            penalty += abs(grid.grid[x][y] - grid.grid[next_x][next_y])
-            break
-    next_x = x
-
-    while next_y > 0:
-        next_y -= 1
-        if grid.grid[next_x][next_y] != 0:
-            penalty += abs(grid.grid[x][y] - grid.grid[next_x][next_y])
-            break
-    next_y = y
-
-    while next_y < grid.size - 1:
-        next_y += 1
-        if grid.grid[next_x][next_y] != 0:
-            penalty += abs(grid.grid[x][y] - grid.grid[next_x][next_y])
-            break
-
-    return penalty
+    return row_func(grid.grid) + row_inv(grid.grid) + col(grid.grid) + col_inv(grid.grid)
 
 
 def utility(grid):
-    W = [[32768, 16384, 8192, 4096], [256, 512, 1024, 2048], [128, 64, 32, 16], [1, 2, 4, 8]]
+    weights = [[32768, 16384, 8192, 4096], [256, 512, 1024, 2048], [128, 64, 32, 16], [1, 2, 4, 8]]
     score = 0
     for i in range(grid.size):
         for j in range(grid.size):
-            score += W[i][j] * grid.grid[i][j]
+            score += weights[i][j] * grid.grid[i][j]
 
-    penalty = 0
-
-    for y in range(grid.size):
-        for x in range(grid.size):
-            penalty += neighbors_penalty(grid, (x, y))
-
-    print(score - penalty)
-    return score - penalty
+    return score - grid_penalty(grid)
 
 
 def expectimax(grid, agent, depth=0):
@@ -107,6 +86,8 @@ def expectimax(grid, agent, depth=0):
 def run_game():
     game = Game()
     expectimax_enabled = False
+    expectimax_moves = 0
+    start_time = None
 
     while True:
 
@@ -115,6 +96,7 @@ def run_game():
             event.key = expectimax(game.grid, 'PLAYER')[1]
             if event.key is None:
                 event.key = choice([K_UP, K_DOWN, K_LEFT, K_RIGHT])
+            expectimax_moves+=1
         else:
             event = pygame.event.wait()
 
@@ -128,6 +110,11 @@ def run_game():
                     game.draw_grid(old_grid)
             else:  # Toggle expectimax
                 expectimax_enabled ^= True
+                if expectimax_enabled:
+                    expectimax_moves=0
+                    start_time = pygame.time.get_ticks()
+                else:
+                    print((expectimax_moves/((pygame.time.get_ticks() - start_time) / 1000)))
         if game.grid.game_over():
             return game.grid.score
 
