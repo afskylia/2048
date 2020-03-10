@@ -1,5 +1,6 @@
 import sys
 from random import choice
+from time import sleep
 
 import pygame
 import pygame.freetype
@@ -11,8 +12,43 @@ MOVES_DICT = {276: "LEFT", 275: "RIGHT", 273: "UP", 274: "DOWN"}  # Only for pri
 MOVES = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
 
 
+def neighbors_penalty(grid, pos):
+    x, y = pos
+    next_x, next_y = pos
+    penalty = 0
+
+    while next_x > 0:
+        next_x -= 1
+        if grid.grid[next_x][next_y] != 0:
+            penalty += abs(grid.grid[x][y] - grid.grid[next_x][next_y])
+            break
+    next_x = x
+
+    while next_x < grid.size - 1:
+        next_x += 1
+        if grid.grid[next_x][next_y] != 0:
+            penalty += abs(grid.grid[x][y] - grid.grid[next_x][next_y])
+            break
+    next_x = x
+
+    while next_y > 0:
+        next_y -= 1
+        if grid.grid[next_x][next_y] != 0:
+            penalty += abs(grid.grid[x][y] - grid.grid[next_x][next_y])
+            break
+    next_y = y
+
+    while next_y < grid.size - 1:
+        next_y += 1
+        if grid.grid[next_x][next_y] != 0:
+            penalty += abs(grid.grid[x][y] - grid.grid[next_x][next_y])
+            break
+
+    return penalty
+
+
 def utility(grid):
-    W = [[6, 5, 4, 3], [5, 4, 3, 2], [4, 3, 2, 1], [3, 2, 1, 0]]
+    W = [[32768, 16384, 8192, 4096], [256, 512, 1024, 2048], [128, 64, 32, 16], [1, 2, 4, 8]]
     score = 0
     for i in range(grid.size):
         for j in range(grid.size):
@@ -22,19 +58,7 @@ def utility(grid):
 
     for y in range(grid.size):
         for x in range(grid.size):
-            neighbors = []  # FIXME: Neighbors tager lige nu ikke højde for tomme pladser!! Skal bruge tighten først
-            if x>0:
-                neighbors.append((x - 1, y))
-            if x < grid.size - 1:
-                neighbors.append((x + 1, y))
-            if y > 0:
-                neighbors.append((x, y - 1))
-            if y < grid.size - 1:
-                neighbors.append((x, y + 1))
-
-            for neighbor in neighbors:
-                _x, _y = neighbor
-                penalty += abs(grid.grid[x][y] - grid.grid[_x][_y])
+            penalty += neighbors_penalty(grid, (x, y))
 
     print(score - penalty)
     return score - penalty
@@ -45,7 +69,7 @@ def expectimax(grid, agent, depth=0):
     # !!!!!!!!!
     if grid.game_over():
         return -1, None
-    if depth >= 4 or grid.is_goal_state():
+    if depth >= 4:
         return utility(grid), None
 
     if agent == 'BOARD':
@@ -133,13 +157,13 @@ def run_game():
 
                 if game.grid.update(event.key):  # Move successful
                     game.draw_grid(old_grid)
-                else:  # Game over
-                    continue  # FIXME should return score
-                    # return grid.score
             else:  # Toggle expectimax
-                expectimax_enabled = not expectimax_enabled  # ^=True
+                expectimax_enabled ^= True
+        if game.grid.game_over():
+            return game.grid.score
 
 
 if __name__ == "__main__":
     while True:
-        print(run_game())
+        print("Game over, your score is:", run_game())
+        sleep(5)
