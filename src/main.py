@@ -43,12 +43,12 @@ def utility(grid):
     return score - grid_penalty(grid)
 
 
-def expectimax(grid, agent, depth=0):
+def expectimax(grid, agent, depth=5):
     # http://iamkush.me/an-artificial-intelligence-for-the-2048-game/
     # !!!!!!!!!
     if grid.game_over():
         return -1, None
-    if depth >= 4:
+    if depth == 0:
         return utility(grid), None
 
     if agent == 'BOARD':
@@ -57,16 +57,16 @@ def expectimax(grid, agent, depth=0):
         if len(grid.free_tiles()) == 0:
             return 0, None
 
-        for tile in grid.free_tiles():
+        for tile in grid.top_free_tiles(depth):
             new_grid = grid.clone()
             new_grid.spawn(2, tile)
 
-            score += 0.9 * expectimax(new_grid, 'PLAYER', depth + 1)[0]
+            score += 0.9 * expectimax(new_grid, 'PLAYER', depth - 1)[0]
 
             new_grid = grid.clone()
             new_grid.spawn(4, tile)
-            score += 0.1 * expectimax(new_grid, 'PLAYER', depth + 1)[0]
-        return score / len(grid.free_tiles()), None
+            score += 0.1 * expectimax(new_grid, 'PLAYER', depth - 1)[0]
+        return score / len(grid.top_free_tiles(depth)), None
 
     elif agent == 'PLAYER':
         score = 0
@@ -75,12 +75,43 @@ def expectimax(grid, agent, depth=0):
         for move in grid.available_moves():
             new_grid = grid.clone()
             new_grid.update(move)
-            res = expectimax(new_grid, 'BOARD', depth + 1)[0]
+            res = expectimax(new_grid, 'BOARD', depth - 1)[0]
             if res >= score:  # TODO: pruning
                 score = res
                 best_move = move
 
         return score, best_move
+
+def simulate(grid, runs):
+    tot = 0
+    for r in range(runs):
+        sim = grid.clone()
+        while not (sim.game_over() or sim.is_goal_state()):
+            sim.update(choice(sim.available_moves()))
+        tot = tot + sim.score
+    return tot/(2*runs)
+
+def monteCarlo(grid):
+    new_grid = grid.clone()
+    scores = []
+    for move in grid.available_moves():
+        score = 0
+        new_grid.update(move)
+        for tile in new_grid.free_tiles():
+            new_grid.spawn(2, tile)
+            score = score + simulate(new_grid, 30)*0.9
+            new_grid.spawn(4, tile)
+            score = score + simulate(new_grid, 30)*0.1
+        scores.append((move, score))
+    if not grid.game_over():
+        bestM = scores[0][0]
+        bestS = scores[0][1]
+        for i in range(len(scores)):
+            if scores[i][1] > bestS:
+                bestS = scores[i][1]
+                bestM = scores[i][0]
+        return bestM
+    return None
 
 
 def run_game():
