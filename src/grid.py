@@ -30,6 +30,19 @@ class Grid:
     def free_tiles(self):
         return [(i, j) for i in range(self.size) for j in range(self.size) if self.grid[i][j] == 0]
 
+    def top_free_tiles(self, num):
+        order = [(0,0),(0,1),(0,2),(0,3),(1,3),(1,2),(1,1),(1,0),(2,0),(2,1),(2,2),(2,3),(3,3),(3,2),(3,1),(3,0)]
+        tiles = []
+        remaining = num
+        for tile in order:
+            if remaining > 0:
+                if self.grid[tile[0]][tile[1]] == 0:
+                    tiles.append(tile)
+                    remaining = remaining - 1
+            else:
+                return tiles
+        return tiles
+
     def spawn(self, val=None, pos=None):
         # Spawn number (random if None) on empty cell in grid
         # 90% chance for 2, 10% chance for 4
