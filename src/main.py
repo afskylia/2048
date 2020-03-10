@@ -43,7 +43,7 @@ def utility(grid):
     return score - grid_penalty(grid)
 
 
-def expectimax(grid, agent, depth=5):
+def expectimax(grid, agent, depth=4):
     # http://iamkush.me/an-artificial-intelligence-for-the-2048-game/
     # !!!!!!!!!
     if grid.game_over():

@@ -19,17 +19,20 @@ class Grid:
 
         if grid is None:
             self.grid = [[0 for i in range(self.size)] for j in range(self.size)]
-            self.grid[0][0]=2
-            self.grid[1][0]=4
-            self.grid[2][0] =8
-            self.grid[3][0] = 16
-            self.grid[0][1] = 32
-            self.grid[1][1] = 64
-            self.grid[2][1] = 128
-            self.grid[3][1] = 256
-            self.grid[0][2] = 512
-            self.grid[1][2] = 1024
-            self.grid[2][2] = 2048
+
+            # self.grid[0][0]=2
+            # self.grid[1][0]=4
+            # self.grid[2][0] =8
+            # self.grid[3][0] = 16
+            # self.grid[0][1] = 32
+            # self.grid[1][1] = 64
+            # self.grid[2][1] = 128
+            # self.grid[3][1] = 256
+            # self.grid[0][2] = 512
+            # self.grid[1][2] = 1024
+            # self.grid[2][2] = 2048
+            # self.grid[3][2]=4096
+
             self.spawn()
             self.spawn()
         else:
