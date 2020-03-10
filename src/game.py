@@ -9,12 +9,12 @@ from grid import Grid
 
 def get_color(val):
     if val == 0:
-        return Color("GAINSBORO")
+        return Color(201, 195, 179)
 
     # [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
     index = int(math.log(val, 2)) - 1
-    colors = [Color("IVORY"), Color("LEMONCHIFFON"), Color("SANDYBROWN"), Color("CORAL"), Color("RED"), Color("YELLOW"),
-              Color("ORANGE"), Color("LIMEGREEN"), Color("PINK"), Color("BLUE"), Color("GREEN"), Color("GREEN"), Color("GREEN"), Color("GREEN"), Color("GREEN")]
+    colors = [Color(232, 226, 211), Color(237, 223, 190), Color(240, 171, 110), Color(235, 119, 87), Color(196, 76, 65), Color(245, 41, 27),
+              Color(245, 227, 125), Color(230, 206, 73), Color(250, 239, 25), Color("BLUE"), Color("GREEN"), Color("GREEN"), Color("GREEN"), Color("GREEN"), Color("GREEN")]
     return colors[index]
 
 
@@ -30,7 +30,7 @@ class Game:
         self.cell_size = ((self.display_size - self.border_size * 2) - (
                 self.border_size * (self.grid.size - 1))) / self.grid.size
         self.screen = pygame.display.set_mode((self.display_size, self.display_size))
-        self.screen.fill(pygame.Color("DARKGRAY"))
+        self.screen.fill(pygame.Color(166, 159, 141))
 
         # border_size + x*(border_size+cell_size)
 
@@ -58,7 +58,7 @@ class Game:
             for x in range(self.grid.size):
                 val = self.grid.grid[y][x]
                 rect = pygame.Rect(self.coord(x), self.coord(y), self.cell_size, self.cell_size)
-                rounded_rect = round_rect(self.screen, rect, get_color(val), rad=10)
+                rounded_rect = round_rect(self.screen, rect, get_color(val), rad=8)
                 # pygame.draw.rect(self.screen, get_color(val), rect)
 
                 if val != 0:
