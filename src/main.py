@@ -58,11 +58,11 @@ def expectimax(grid, agent, depth=0):
             new_grid = grid.clone()
             new_grid.spawn(2, tile)
 
-            score += 0.75 * expectimax(new_grid, 'PLAYER', depth + 1)[0]
+            score += 0.9 * expectimax(new_grid, 'PLAYER', depth + 1)[0]
 
             new_grid = grid.clone()
             new_grid.spawn(4, tile)
-            score += 0.25 * expectimax(new_grid, 'PLAYER', depth + 1)[0]
+            score += 0.1 * expectimax(new_grid, 'PLAYER', depth + 1)[0]
         return score / len(grid.free_tiles()), None
 
     elif agent == 'PLAYER':
@@ -79,6 +79,37 @@ def expectimax(grid, agent, depth=0):
 
         return score, best_move
 
+def simulate(grid, runs):
+    tot = 0
+    for r in range(runs):
+        sim = grid.clone()
+        while not (sim.game_over() or sim.is_goal_state()):
+            sim.update(choice(sim.available_moves()))
+        tot = tot + sim.score
+    return tot/(2*runs)
+
+def monteCarlo(grid):
+    new_grid = grid.clone()
+    scores = []
+    for move in grid.available_moves():
+        score = 0
+        new_grid.update(move)
+        for tile in new_grid.free_tiles():
+            new_grid.spawn(2, tile)
+            score = score + simulate(new_grid, 30)*0.9
+            new_grid.spawn(4, tile)
+            score = score + simulate(new_grid, 30)*0.1
+        scores.append((move, score))
+    if not grid.game_over():
+        bestM = scores[0][0]
+        bestS = scores[0][1]
+        for i in range(len(scores)):
+            if scores[i][1] > bestS:
+                bestS = scores[i][1]
+                bestM = scores[i][0]
+        return bestM
+    return None
+
 
 def run_game():
     game = Game()
@@ -88,7 +119,7 @@ def run_game():
 
         if expectimax_enabled and not pygame.event.peek():
             event = pygame.event.Event(KEYDOWN)
-            event.key = expectimax(game.grid, 'PLAYER')[1]
+            event.key = monteCarlo(game.grid)#expectimax(game.grid, 'PLAYER')[1]
             if event.key is None:
                 event.key = choice([K_UP, K_DOWN, K_LEFT, K_RIGHT])
         else:

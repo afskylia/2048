@@ -32,8 +32,8 @@ class Grid:
 
     def spawn(self, val=None, pos=None):
         # Spawn number (random if None) on empty cell in grid
-        # 75% chance for 2, 25% chance for 4
-        val = val if val is not None else 2 if randrange(100) <= 75 else 4
+        # 90% chance for 2, 10% chance for 4
+        val = val if val is not None else 2 if randrange(100) <= 90 else 4
         i, j = pos if pos is not None else choice(self.free_tiles())
         self.grid[i][j] = val
 
