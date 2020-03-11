@@ -18,7 +18,9 @@ class Game:
         pygame.init()
         pygame.display.set_caption("2048")
         self.clock = pygame.time.Clock()
-        self.grid = Grid(4)
+        self.size = 4
+        self.grid = Grid(self.size)
+        self.weights = self.set_weights()
 
         # TODO: Prompt user for grid size (instead of hardcoded 4x4)
         self.display_size = 640
@@ -41,6 +43,11 @@ class Game:
 
         self.draw_grid()
         pygame.display.flip()
+
+    def set_weights(self):
+        weights = [2 ** n for n in range(0, self.size * self.size)][::-1]
+        weights = [weights[i:i + self.grid.size] for i in range(0, self.size * self.size, self.size)]
+        return [weights[i] if i % 2 == 0 else (weights[i])[::-1] for i in range(self.size)]
 
     def coord(self, index):
         return self.border_size + index * (self.cell_size + self.border_size)
