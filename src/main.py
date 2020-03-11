@@ -11,6 +11,7 @@ from game import Game
 
 MOVES_DICT = {276: "LEFT", 275: "RIGHT", 273: "UP", 274: "DOWN"}  # Only for printing purposes
 MOVES = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
+weights = []
 
 
 def grid_penalty(grid):
@@ -25,16 +26,24 @@ def grid_penalty(grid):
                     break
         return _penalty
 
-    def row_func(_grid): return sum([row_penalty(row) for row in _grid])
-    def row_inv(_grid): return row_func([row[::-1] for row in _grid])
-    def col(_grid): return row_func([list(row) for row in zip(*_grid)])
-    def col_inv(_grid): return row_inv([list(row) for row in zip(*_grid)])
+    def row_func(_grid):
+        return sum([row_penalty(row) for row in _grid])
+
+    def row_inv(_grid):
+        return row_func([row[::-1] for row in _grid])
+
+    def col(_grid):
+        return row_func([list(row) for row in zip(*_grid)])
+
+    def col_inv(_grid):
+        return row_inv([list(row) for row in zip(*_grid)])
 
     return row_func(grid.grid) + row_inv(grid.grid) + col(grid.grid) + col_inv(grid.grid)
 
 
 def utility(grid):
-    weights = [[32768, 16384, 8192, 4096], [256, 512, 1024, 2048], [128, 64, 32, 16], [1, 2, 4, 8]]
+    # TODO: OBS: i denne implementation roteres vægtmatricen tilsyneladende nogle gange
+    # http://kstrandby.github.io/2048-Helper/
     score = 0
     for i in range(grid.size):
         for j in range(grid.size):
@@ -43,12 +52,12 @@ def utility(grid):
     return score - grid_penalty(grid)
 
 
-def expectimax(grid, agent, depth=4):
-    # http://iamkush.me/an-artificial-intelligence-for-the-2048-game/
-    # !!!!!!!!!
+def expectimax(grid, agent, depth=5):
+    # TODO: credit http://iamkush.me/an-artificial-intelligence-for-the-2048-game/
+
     if grid.game_over():
         return -1, None
-    if depth == 0:
+    if depth == 0 or len(grid.available_moves()) == 1:
         return utility(grid), None
 
     if agent == 'BOARD':
@@ -69,6 +78,9 @@ def expectimax(grid, agent, depth=4):
         return score / len(grid.top_free_tiles(depth)), None
 
     elif agent == 'PLAYER':
+        if len(grid.available_moves()) == 1:
+            return grid.score, grid.available_moves()[0]
+
         score = 0
         best_move = None
 
@@ -82,6 +94,7 @@ def expectimax(grid, agent, depth=4):
 
         return score, best_move
 
+
 def simulate(grid, runs):
     tot = 0
     for r in range(runs):
@@ -89,7 +102,8 @@ def simulate(grid, runs):
         while not (sim.game_over() or sim.is_goal_state()):
             sim.update(choice(sim.available_moves()))
         tot = tot + sim.score
-    return tot/(2*runs)
+    return tot / (2 * runs)
+
 
 def monteCarlo(grid):
     new_grid = grid.clone()
@@ -99,9 +113,9 @@ def monteCarlo(grid):
         new_grid.update(move)
         for tile in new_grid.free_tiles():
             new_grid.spawn(2, tile)
-            score = score + simulate(new_grid, 30)*0.9
+            score = score + simulate(new_grid, 30) * 0.9
             new_grid.spawn(4, tile)
-            score = score + simulate(new_grid, 30)*0.1
+            score = score + simulate(new_grid, 30) * 0.1
         scores.append((move, score))
     if not grid.game_over():
         bestM = scores[0][0]
@@ -116,6 +130,12 @@ def monteCarlo(grid):
 
 def run_game():
     game = Game()
+
+    global weights
+    weights = [2 ** n for n in range(0, game.grid.size * game.grid.size)][::-1]
+    weights = [weights[i:i + game.grid.size] for i in range(0, game.grid.size * game.grid.size, game.grid.size)]
+    weights = [weights[i] if i % 2 == 0 else (weights[i])[::-1] for i in range(game.grid.size)]
+
     expectimax_enabled = False
     expectimax_moves = 0
     start_time = None
@@ -124,10 +144,15 @@ def run_game():
 
         if expectimax_enabled and not pygame.event.peek():
             event = pygame.event.Event(KEYDOWN)
-            event.key = expectimax(game.grid, 'PLAYER')[1]
+            size = len(game.grid.free_tiles())
+
+            # depth = 4 if not game.grid.contains(1024) else 3 if size >= 8 else 6 if size <= 2 else 5
+            depth = 4 if size >= 8 else 8 if size <= 2 else 5
+            event.key = expectimax(game.grid, 'PLAYER', depth)[1]
+
             if event.key is None:
-                event.key = choice([K_UP, K_DOWN, K_LEFT, K_RIGHT])
-            expectimax_moves+=1
+                event.key = choice(game.grid.available_moves())
+            expectimax_moves += 1
         else:
             event = pygame.event.wait()
 
@@ -138,19 +163,20 @@ def run_game():
                 old_grid = game.grid.clone()
 
                 if game.grid.update(event.key):  # Move successful
-                    game.draw_grid(old_grid)
+                    game.draw_grid()
             else:  # Toggle expectimax
                 expectimax_enabled ^= True
                 if expectimax_enabled:
-                    expectimax_moves=0
+                    expectimax_moves = 0
                     start_time = pygame.time.get_ticks()
                 else:
-                    print((expectimax_moves/((pygame.time.get_ticks() - start_time) / 1000)))
+                    print((expectimax_moves / ((pygame.time.get_ticks() - start_time) / 1000)))
         if game.grid.game_over():
-            return game.grid.score
+            return game
 
 
 if __name__ == "__main__":
     while True:
-        print("Game over, your score is:", run_game())
+        game = run_game()
+        print("Game over!\nScore: {}\nLargest number reached: {}\n".format(game.grid.score, game.grid.largest_number()))
         sleep(5)
