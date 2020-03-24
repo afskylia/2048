@@ -154,17 +154,16 @@ def run_game(depth=5, prune4 = False):
 
 if __name__ == "__main__":
     configs = [(4, False), (4, True), (5, False), (5, True)]
-    while True:
-        for config in configs:
-            wins = 0
-            totScore = 0
-            for i in range(10):
-                game = run_game(config[0], config[1])
-                print(game.score)
-                print(game.is_goal_state(), "\n")
-                totScore += game.score
-                if game.is_goal_state():
-                    wins += 1
-            print(" --- depth: ", config[0], ", prune 4s: ", config[1], " ---")
-            print("Avg. score: ", totScore/10, ", wins: ", wins)
-        sleep(5)
+    for config in configs:
+        wins = 0
+        totScore = 0
+        for i in range(10):
+            game = run_game(config[0], config[1])
+            print(game.score)
+            print(game.is_goal_state(), "\n")
+            totScore += game.score
+            if game.is_goal_state():
+                wins += 1
+        print(" --- depth: ", config[0], ", prune 4s: ", config[1], " ---")
+        print("Avg. score: ", totScore/10, ", wins: ", wins)
+    sleep(10)
