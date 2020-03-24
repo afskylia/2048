@@ -43,7 +43,7 @@ def utility(grid):
     return score - grid_penalty(grid)
 
 
-def expectimax(grid, agent, depth=5):
+def expectimax(grid, agent, depth, prune4=False):
     # http://iamkush.me/an-artificial-intelligence-for-the-2048-game/
     # !!!!!!!!!
     if grid.game_over():
@@ -55,17 +55,17 @@ def expectimax(grid, agent, depth=5):
         score = 0
 
         if len(grid.free_tiles()) == 0:
-            return 0, None
+            return -100000, None
 
         for tile in grid.top_free_tiles(depth):
             new_grid = grid.clone()
             new_grid.spawn(2, tile)
 
             score += 0.9 * expectimax(new_grid, 'PLAYER', depth - 1)[0]
-
-            new_grid = grid.clone()
-            new_grid.spawn(4, tile)
-            score += 0.1 * expectimax(new_grid, 'PLAYER', depth - 1)[0]
+            if not prune4:
+                new_grid = grid.clone()
+                new_grid.spawn(4, tile)
+                score += 0.1 * expectimax(new_grid, 'PLAYER', depth - 1)[0]
         return score / len(grid.top_free_tiles(depth)), None
 
     elif agent == 'PLAYER':
@@ -114,17 +114,17 @@ def monteCarlo(grid):
     return None
 
 
-def run_game():
+def run_game(depth=5, prune4 = False):
     game = Game()
-    expectimax_enabled = False
+    expectimax_enabled = True
     expectimax_moves = 0
-    start_time = None
+    #start_time = None
 
     while True:
 
         if expectimax_enabled and not pygame.event.peek():
             event = pygame.event.Event(KEYDOWN)
-            event.key = expectimax(game.grid, 'PLAYER')[1]
+            event.key = expectimax(game.grid, 'PLAYER', depth, prune4)[1]
             if event.key is None:
                 event.key = choice([K_UP, K_DOWN, K_LEFT, K_RIGHT])
             expectimax_moves+=1
@@ -141,16 +141,29 @@ def run_game():
                     game.draw_grid(old_grid)
             else:  # Toggle expectimax
                 expectimax_enabled ^= True
+                """
                 if expectimax_enabled:
                     expectimax_moves=0
                     start_time = pygame.time.get_ticks()
                 else:
                     print((expectimax_moves/((pygame.time.get_ticks() - start_time) / 1000)))
+                    """
         if game.grid.game_over():
-            return game.grid.score
+            return game.grid
 
 
 if __name__ == "__main__":
-    while True:
-        print("Game over, your score is:", run_game())
-        sleep(5)
+    configs = [(4, False), (4, True), (5, False), (5, True)]
+    for config in configs:
+        wins = 0
+        totScore = 0
+        for i in range(10):
+            game = run_game(config[0], config[1])
+            print(game.score)
+            print(game.is_goal_state(), "\n")
+            totScore += game.score
+            if game.is_goal_state():
+                wins += 1
+        print(" --- depth: ", config[0], ", prune 4s: ", config[1], " ---")
+        print("Avg. score: ", totScore/10, ", wins: ", wins)
+    sleep(10)
