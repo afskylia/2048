@@ -201,3 +201,5 @@ dmypy.json
 /venv/
 !.idea/
 .idea
+!/.idea/misc.xml
+!/.idea/2048.iml
