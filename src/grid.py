@@ -18,7 +18,21 @@ class Grid:
         self.score = score
 
         if grid is None:
-            self.grid = [[0 for i in range(self.size)] for j in range(self.size)]
+            self.grid = [[0 for i in range(size)] for j in range(size)]
+
+            # self.grid[0][0]=2
+            # self.grid[1][0]=4
+            # self.grid[2][0] =8
+            # self.grid[3][0] = 16
+            # self.grid[0][1] = 32
+            # self.grid[1][1] = 64
+            # self.grid[2][1] = 128
+            # self.grid[3][1] = 256
+            # self.grid[0][2] = 512
+            # self.grid[1][2] = 1024
+            # self.grid[2][2] = 2048
+            # self.grid[3][2]=4096
+
             self.spawn()
             self.spawn()
         else:
@@ -117,6 +131,12 @@ class Grid:
 
     def is_goal_state(self):
         return any(any(i >= 2048 for i in row) for row in self.grid)
+
+    def largest_number(self):
+        return max(map(max,self.grid))
+
+    def contains(self,val):
+        return any(val in row for row in self.grid)
 
     def game_over(self):
         return len(self.available_moves()) == 0

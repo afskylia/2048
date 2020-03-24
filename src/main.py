@@ -9,38 +9,63 @@ from pygame.locals import *
 
 from game import Game
 
-MOVES_DICT = {276: "LEFT", 275: "RIGHT", 273: "UP", 274: "DOWN"}  # Only for printing purposes
 MOVES = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
+game = None
 
 
-def grid_penalty(grid):
-    def row_penalty(row):
-        _penalty = 0
-        for x in range(len(row)):
-            next_x = x
-            while next_x < len(row) - 1:
-                next_x += 1
-                if row[next_x] != 0:
-                    _penalty += abs(row[x] - row[next_x])
-                    break
-        return _penalty
+# Applies a function on all rows/columns of a grid and returns the sum of the results
+def fold(fun, grid):
+    def row_fun(_fun, _grid): return sum([_fun(row) for row in _grid])
 
-    def row_func(_grid): return sum([row_penalty(row) for row in _grid])
-    def row_inv(_grid): return row_func([row[::-1] for row in _grid])
-    def col(_grid): return row_func([list(row) for row in zip(*_grid)])
-    def col_inv(_grid): return row_inv([list(row) for row in zip(*_grid)])
+    def row_inv(_fun, _grid): return row_fun(_fun, [row[::-1] for row in _grid])
 
-    return row_func(grid.grid) + row_inv(grid.grid) + col(grid.grid) + col_inv(grid.grid)
+    def col(_fun, _grid): return row_fun(_fun, [list(row) for row in zip(*_grid)])
+
+    def col_inv(_fun, _grid): return row_inv(_fun, [list(row) for row in zip(*_grid)])
+
+    grid = grid.grid
+    return row_fun(fun, grid) + row_inv(fun, grid) + col(fun, grid) + col_inv(fun, grid)
+
+
+# Calculates the penalty of a row based on the differences between the numbers in the row
+def row_score(row):
+    penalty = 0
+    monotony_score = 0  # Increases when there are more of the same number next to each other, e.g. [2,2,16,2]=4
+
+    for x in range(len(row)):
+        next_x = x
+        while next_x < len(row) - 1:
+            next_x += 1
+            if row[next_x] != 0:
+                if row[next_x] == row[x]:
+                    monotony_score += row[x] * 2
+                penalty += abs(row[x] - row[next_x])
+                break
+    return penalty - monotony_score
 
 
 def utility(grid):
-    weights = [[32768, 16384, 8192, 4096], [256, 512, 1024, 2048], [128, 64, 32, 16], [1, 2, 4, 8]]
+    # TODO: i denne implementation roteres vægtmatricen tilsyneladende nogle gange
+    # http://kstrandby.github.io/2048-Helper/
     score = 0
+
+    edge_weights = [[16, 16, 16, 16],
+                    [8, 1, 1, 8],
+                    [4, 1, 1, 4],
+                    [2, 2, 2, 2]]
+
+    # Rewards grids for following the 'snake' formation and for being on the edge
     for i in range(grid.size):
         for j in range(grid.size):
-            score += weights[i][j] * grid.grid[i][j]
+            score += game.weights[i][j] * grid.grid[i][j]  #* edge_weights[i][j]
 
-    return score - grid_penalty(grid)
+    # Penalize grids with low monotony
+    grid_penalty = fold(row_score, grid)
+    # Rewards grids with many free tiles
+    score += len(grid.free_tiles()) ** grid.size
+
+    score /= grid.size  # TODO: Not sure if this does anything
+    return score - grid_penalty
 
 
 def expectimax(grid, agent, depth, prune4=False):
@@ -48,7 +73,7 @@ def expectimax(grid, agent, depth, prune4=False):
     # !!!!!!!!!
     if grid.game_over():
         return -1, None
-    if depth == 0:
+    if depth == 0: #or len(grid.available_moves()) == 1 ???
         return utility(grid), None
 
     if agent == 'BOARD':
@@ -60,7 +85,6 @@ def expectimax(grid, agent, depth, prune4=False):
         for tile in grid.top_free_tiles(depth):
             new_grid = grid.clone()
             new_grid.spawn(2, tile)
-
             score += 0.9 * expectimax(new_grid, 'PLAYER', depth - 1)[0]
             if not prune4:
                 new_grid = grid.clone()
@@ -69,6 +93,9 @@ def expectimax(grid, agent, depth, prune4=False):
         return score / len(grid.top_free_tiles(depth)), None
 
     elif agent == 'PLAYER':
+        if len(grid.available_moves()) == 1:
+            return grid.score, grid.available_moves()[0]
+
         score = 0
         best_move = None
 
@@ -82,6 +109,7 @@ def expectimax(grid, agent, depth, prune4=False):
 
         return score, best_move
 
+
 def simulate(grid, runs):
     tot = 0
     for r in range(runs):
@@ -89,7 +117,8 @@ def simulate(grid, runs):
         while not (sim.game_over() or sim.is_goal_state()):
             sim.update(choice(sim.available_moves()))
         tot = tot + sim.score
-    return tot/(2*runs)
+    return tot / (2 * runs)
+
 
 def monteCarlo(grid):
     new_grid = grid.clone()
@@ -99,9 +128,9 @@ def monteCarlo(grid):
         new_grid.update(move)
         for tile in new_grid.free_tiles():
             new_grid.spawn(2, tile)
-            score = score + simulate(new_grid, 30)*0.9
+            score = score + simulate(new_grid, 30) * 0.9
             new_grid.spawn(4, tile)
-            score = score + simulate(new_grid, 30)*0.1
+            score = score + simulate(new_grid, 30) * 0.1
         scores.append((move, score))
     if not grid.game_over():
         bestM = scores[0][0]
@@ -124,10 +153,13 @@ def run_game(depth=5, prune4 = False):
 
         if expectimax_enabled and not pygame.event.peek():
             event = pygame.event.Event(KEYDOWN)
+            #size = len(game.grid.free_tiles())
+            # depth = 4 if size >= 8 else 8 if size <= 2 else 5
             event.key = expectimax(game.grid, 'PLAYER', depth, prune4)[1]
+
             if event.key is None:
-                event.key = choice([K_UP, K_DOWN, K_LEFT, K_RIGHT])
-            expectimax_moves+=1
+                event.key = choice(game.grid.available_moves())
+            expectimax_moves += 1
         else:
             event = pygame.event.wait()
 
@@ -138,18 +170,18 @@ def run_game(depth=5, prune4 = False):
                 old_grid = game.grid.clone()
 
                 if game.grid.update(event.key):  # Move successful
-                    game.draw_grid(old_grid)
+                    game.draw_grid()
             else:  # Toggle expectimax
                 expectimax_enabled ^= True
                 """
                 if expectimax_enabled:
-                    expectimax_moves=0
+                    expectimax_moves = 0
                     start_time = pygame.time.get_ticks()
                 else:
                     print((expectimax_moves/((pygame.time.get_ticks() - start_time) / 1000)))
                     """
         if game.grid.game_over():
-            return game.grid
+            return game
 
 
 if __name__ == "__main__":

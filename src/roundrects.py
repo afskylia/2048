@@ -1,4 +1,5 @@
 """
+SOURCE: https://github.com/Mekire/rounded-rects-pygame/blob/master/roundrects/roundrects.py
 Rounded rectangles in both non-antialiased and antialiased varieties.
 """
 
