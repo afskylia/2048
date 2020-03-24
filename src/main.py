@@ -190,11 +190,9 @@ if __name__ == "__main__":
         totScore = 0
         for i in range(10):
             game=Game()
-            game_state = run_game(config[0], config[1])
-            print(game_state.score)
-            print(game_state.is_goal_state(), "\n")
-            totScore += game_state.score
-            if game_state.is_goal_state():
+            grid = run_game(config[0], config[1]).grid
+            totScore += grid.score
+            if grid.is_goal_state():
                 wins += 1
         print(" --- depth: ", config[0], ", prune 4s: ", config[1], " ---")
         print("Avg. score: ", totScore/10, ", wins: ", wins)
