@@ -14,21 +14,21 @@ TEXT_COLORS = {0: Color("#D8CBBF"), 2: Color("#665F58"), 4: Color("#5C574E"), 8:
 
 
 class Game:
-    def __init__(self):
-        pygame.init()
-        pygame.display.set_caption("2048")
-        self.clock = pygame.time.Clock()
-        self.size = 4
+    def __init__(self, size):
+        self.size = size  # TODO: Prompt user for grid size (instead of hardcoded 4x4)
         self.grid = Grid(self.size)
         self.weights = self.set_weights()
 
-        # TODO: Prompt user for grid size (instead of hardcoded 4x4)
+        # Initializes the GUI
+        pygame.init()
+        pygame.display.set_caption("2048")
         self.display_size = 640
         self.border_size = self.display_size / 80.0
-        self.cell_size = ((self.display_size - self.border_size * 2) - (
-                    self.border_size * (self.grid.size - 1))) / self.grid.size
+        self.cell_size = ((self.display_size - self.border_size * 2) -
+                          (self.border_size * (self.grid.size - 1))) / self.grid.size
         self.screen = pygame.display.set_mode((self.display_size, self.display_size))
         self.screen.fill(pygame.Color("#BBAD9D"))
+
         # TODO: Show a box that says how to enable the AI, score etc
 
         # TODO: Scale font size - necessary if we're gonna make nxn instead of 4x4
@@ -44,7 +44,7 @@ class Game:
         self.draw_grid()
         pygame.display.flip()
 
-    def set_weights(self):
+    def set_weights(self):  # Generates weight matrix used for the game algorithm
         weights = [2 ** n for n in range(0, self.size * self.size)][::-1]
         weights = [weights[i:i + self.grid.size] for i in range(0, self.size * self.size, self.size)]
         return [weights[i] if i % 2 == 0 else (weights[i])[::-1] for i in range(self.size)]
@@ -52,8 +52,8 @@ class Game:
     def coord(self, index):
         return self.border_size + index * (self.cell_size + self.border_size)
 
-    def draw_grid(self):
-        # Draw each cell in the grid
+    def draw_grid(self):  # Updates the drawing of the game grid
+
         for y in range(self.grid.size):
             for x in range(self.grid.size):
                 val = self.grid.grid[y][x]
@@ -67,4 +67,3 @@ class Game:
                     self.screen.blit(text, (_x, _y))
 
         pygame.display.flip()
-        self.clock.tick(60)

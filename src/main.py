@@ -45,22 +45,19 @@ def row_score(row):
 
 
 def utility(grid):
-    # TODO: i denne implementation roteres vægtmatricen tilsyneladende nogle gange
-    # http://kstrandby.github.io/2048-Helper/
+    # TODO: i denne implementation roteres vægtmatricen tilsyneladende nogle gange:
+    #  http://kstrandby.github.io/2048-Helper/
+
     score = 0
 
-    edge_weights = [[16, 16, 16, 16],
-                    [8, 1, 1, 8],
-                    [4, 1, 1, 4],
-                    [2, 2, 2, 2]]
-
-    # Rewards grids for following the 'snake' formation and for being on the edge
+    # Rewards grids for following the 'snake' formation
     for i in range(grid.size):
         for j in range(grid.size):
-            score += game.weights[i][j] * grid.grid[i][j]  #* edge_weights[i][j]
+            score += game.weights[i][j] * grid.grid[i][j]
 
     # Penalize grids with low monotony
     grid_penalty = fold(row_score, grid)
+
     # Rewards grids with many free tiles
     score += len(grid.free_tiles()) ** grid.size
 
@@ -69,11 +66,11 @@ def utility(grid):
 
 
 def expectimax(grid, agent, depth, prune4=False):
-    # http://iamkush.me/an-artificial-intelligence-for-the-2048-game/
-    # !!!!!!!!!
+    # TODO: credit http://iamkush.me/an-artificial-intelligence-for-the-2048-game/
+
     if grid.game_over():
         return -1, None
-    if depth == 0: #or len(grid.available_moves()) == 1 ???
+    if depth == 0:
         return utility(grid), None
 
     if agent == 'BOARD':
@@ -86,10 +83,12 @@ def expectimax(grid, agent, depth, prune4=False):
             new_grid = grid.clone()
             new_grid.spawn(2, tile)
             score += 0.9 * expectimax(new_grid, 'PLAYER', depth - 1)[0]
+
             if not prune4:
                 new_grid = grid.clone()
                 new_grid.spawn(4, tile)
                 score += 0.1 * expectimax(new_grid, 'PLAYER', depth - 1)[0]
+
         return score / len(grid.top_free_tiles(depth)), None
 
     elif agent == 'PLAYER':
@@ -103,7 +102,7 @@ def expectimax(grid, agent, depth, prune4=False):
             new_grid = grid.clone()
             new_grid.update(move)
             res = expectimax(new_grid, 'BOARD', depth - 1)[0]
-            if res >= score:  # TODO: pruning
+            if res >= score:
                 score = res
                 best_move = move
 
@@ -143,17 +142,15 @@ def monteCarlo(grid):
     return None
 
 
-def run_game(depth=5, prune4 = False):
+def run_game(depth=5, prune4=False):
     expectimax_enabled = True
     expectimax_moves = 0
-    #start_time = None
 
     while True:
-
         if expectimax_enabled and not pygame.event.peek():
             event = pygame.event.Event(KEYDOWN)
-            #size = len(game.grid.free_tiles())
-            # depth = 4 if size >= 8 else 8 if size <= 2 else 5
+            # size = len(game.grid.free_tiles())
+            # depth = depth-1 if size >= 7 else depth+1 if size <= 2 else depth
             event.key = expectimax(game.grid, 'PLAYER', depth, prune4)[1]
 
             if event.key is None:
@@ -166,21 +163,12 @@ def run_game(depth=5, prune4 = False):
             sys.exit()
         elif event.type == KEYDOWN:
             if event.key in MOVES:
-                old_grid = game.grid.clone()
-
                 if game.grid.update(event.key):  # Move successful
                     game.draw_grid()
             else:  # Toggle expectimax
                 expectimax_enabled ^= True
-                """
-                if expectimax_enabled:
-                    expectimax_moves = 0
-                    start_time = pygame.time.get_ticks()
-                else:
-                    print((expectimax_moves/((pygame.time.get_ticks() - start_time) / 1000)))
-                    """
         if game.grid.game_over():
-            return game
+            return game.grid
 
 
 if __name__ == "__main__":
@@ -188,12 +176,16 @@ if __name__ == "__main__":
     for config in configs:
         wins = 0
         totScore = 0
+        print("Running config: " + str(config))
         for i in range(10):
-            game=Game()
-            grid = run_game(config[0], config[1]).grid
-            totScore += grid.score
-            if grid.is_goal_state():
+            game = Game(4)  # Reset the game state and GUI
+            resulting_grid = run_game(config[0], config[1])  # The resulting game state
+            totScore += resulting_grid.score
+            if resulting_grid.is_goal_state():
                 wins += 1
+            print("{0} game #{1} with score {2}".format(("Won" if resulting_grid.is_goal_state() else "Lost"), i,
+                                                        resulting_grid.score))
+
         print(" --- depth: ", config[0], ", prune 4s: ", config[1], " ---")
-        print("Avg. score: ", totScore/10, ", wins: ", wins)
+        print("Avg. score: ", totScore / 10, ", wins: ", wins)
     sleep(10)
