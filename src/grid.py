@@ -1,9 +1,8 @@
-import math
-from pygame.locals import *
-import sys
-from collections import defaultdict
+from copy import deepcopy
 from random import randrange, choice
-from copy import copy, deepcopy
+
+from pygame.locals import *
+
 
 def transpose(grid):
     return [list(row) for row in zip(*grid)]
@@ -19,8 +18,7 @@ class Grid:
         self.score = score
 
         if grid is None:
-            self.grid = [[0 for i in range(self.size)]
-                         for j in range(self.size)]
+            self.grid = [[0 for i in range(self.size)] for j in range(self.size)]
             self.spawn()
             self.spawn()
         else:
@@ -29,24 +27,35 @@ class Grid:
     def clone(self):
         return Grid(self.size, self.score, deepcopy(self.grid))
 
-    def empty_tiles(self):
+    def free_tiles(self):
         return [(i, j) for i in range(self.size) for j in range(self.size) if self.grid[i][j] == 0]
 
+    def top_free_tiles(self, num):
+        order = [(0,0),(0,1),(0,2),(0,3),(1,3),(1,2),(1,1),(1,0),(2,0),(2,1),(2,2),(2,3),(3,3),(3,2),(3,1),(3,0)]
+        tiles = []
+        remaining = num
+        for tile in order:
+            if remaining > 0:
+                if self.grid[tile[0]][tile[1]] == 0:
+                    tiles.append(tile)
+                    remaining = remaining - 1
+            else:
+                return tiles
+        return tiles
+
     def spawn(self, val=None, pos=None):
-        # Spawn number on random empty cell in grid
-        # 75% chance for 2, 25% chance for 4
+        # Spawn number (random if None) on empty cell in grid
+        # 90% chance for 2, 10% chance for 4
+        val = val if val is not None else 2 if randrange(100) <= 90 else 4
+        i, j = pos if pos is not None else choice(self.free_tiles())
+        self.grid[i][j] = val
 
-        if pos is None and val is None:
-            val = 2 if randrange(100) <= 90 else 4
-            (i, j) = choice(self.empty_tiles())
-            self.grid[i][j] = val
-        else:
-            i, j = pos
-            self.grid[i][j] = val
-
-    def update(self, dir):
+    def update(self, move):
         def move_row_left(row):
             def tighten(_row):
+                # TODO: omskriv + giv credit
+                # TODO: https://github.com/Fennay/python-study/blob/master/2048/2048.py
+
                 new_row = [i for i in _row if i != 0]
                 new_row += [0 for i in range(len(_row) - len(new_row))]
                 return new_row
@@ -74,45 +83,43 @@ class Grid:
         moves[K_UP] = lambda grid: transpose(moves[K_LEFT](transpose(grid)))
         moves[K_DOWN] = lambda grid: transpose(moves[K_RIGHT](transpose(grid)))
 
-        if dir in moves:
-            if self.move_is_possible(dir):
-                self.grid = moves[dir](self.grid)
-                self.spawn()
-                return True
-            else:
-                return False
+        if move in moves and self.move_is_possible(move):
+            self.grid = moves[move](self.grid)
+            self.spawn()
+            return True
+        else:
+            return False
 
-    def move_is_possible(self, dir):
+    def move_is_possible(self, move):
         def row_is_left_movable(row):
-            def change(i):  # true if there'll be change in i-th tile
-                if row[i] == 0 and row[i + 1] != 0:  # Move
-                    return True
+            def change(i):
                 if row[i] != 0 and row[i + 1] == row[i]:  # Merge
+                    return True
+                if row[i] == 0 and row[i + 1] != 0:  # Move
                     return True
                 return False
 
             return any(change(i) for i in range(len(row) - 1))
 
-        check = {K_LEFT: lambda field: any(
-            row_is_left_movable(row) for row in field)}
+        check = {K_LEFT: lambda field: any(row_is_left_movable(row) for row in field)}
         check[K_RIGHT] = lambda field: check[K_LEFT](invert(field))
         check[K_UP] = lambda field: check[K_LEFT](transpose(field))
         check[K_DOWN] = lambda field: check[K_RIGHT](transpose(field))
 
-        if dir in check:
-            return check[dir](self.grid)
-        else:
-            return False
+        return False if move not in check else check[move](self.grid)
 
-    def victory(self):
+    def available_moves(self):
+        moves = []
+        for move in [K_UP, K_DOWN, K_LEFT, K_RIGHT]:
+            if self.move_is_possible(move):
+                moves.append(move)
+        return moves
+
+    def is_goal_state(self):
         return any(any(i >= 2048 for i in row) for row in self.grid)
 
-    def gameover(self):
-        return not any(self.move_is_possible(move) for move in [K_UP, K_DOWN, K_RIGHT, K_LEFT])
-
-    def __getitem__(self, pos):
-        x, y = pos
-        return self.grid[x][y]
+    def game_over(self):
+        return len(self.available_moves()) == 0
 
     def __str__(self):
         s = [[str(e) for e in row] for row in self.grid]
