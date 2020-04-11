@@ -17,22 +17,28 @@ class Grid:
         self.size = size
         self.score = score
 
+        # Generate weight matrix
+        weights = [2 ** n for n in range(0, self.size * self.size)][::-1]
+        weights = [weights[i:i + self.size] for i in range(0, self.size * self.size, self.size)]
+        self.weights = [weights[i] if i % 2 == 0 else (weights[i])[::-1] for i in range(self.size)]
+
+        # Generate order matrix
+        self.order = []
+        x, y, i, j = 0, 0, 0, 1
+        while not (len(self.order) == self.size * self.size):
+            self.order.append((x, y))
+            if i == self.size - 1:
+                y = self.size - 1 if j == 1 else 0
+                j *= -1
+                x += 1
+                i = 0
+            else:
+                y += j
+                i += 1
+
+        # Spawn initial cells if new game
         if grid is None:
             self.grid = [[0 for i in range(size)] for j in range(size)]
-
-            # self.grid[0][0]=2
-            # self.grid[1][0]=4
-            # self.grid[2][0] =8
-            # self.grid[3][0] = 16
-            # self.grid[0][1] = 32
-            # self.grid[1][1] = 64
-            # self.grid[2][1] = 128
-            # self.grid[3][1] = 256
-            # self.grid[0][2] = 512
-            # self.grid[1][2] = 1024
-            # self.grid[2][2] = 2048
-            # self.grid[3][2]=4096
-
             self.spawn()
             self.spawn()
         else:
@@ -41,14 +47,25 @@ class Grid:
     def clone(self):
         return Grid(self.size, self.score, deepcopy(self.grid))
 
+    def neighbors(self, pos):
+        x, y = pos
+        neighbors = []
+        for neighbor in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]:
+            _x, _y = neighbor
+            try:
+                neighbors.append(self.grid[_x][_y])
+            except IndexError:
+                continue
+
+        return neighbors
+
     def free_tiles(self):
         return [(i, j) for i in range(self.size) for j in range(self.size) if self.grid[i][j] == 0]
 
     def top_free_tiles(self, num):
-        order = [(0,0),(0,1),(0,2),(0,3),(1,3),(1,2),(1,1),(1,0),(2,0),(2,1),(2,2),(2,3),(3,3),(3,2),(3,1),(3,0)]
         tiles = []
         remaining = num
-        for tile in order:
+        for tile in self.order:
             if remaining > 0:
                 if self.grid[tile[0]][tile[1]] == 0:
                     tiles.append(tile)
@@ -58,8 +75,7 @@ class Grid:
         return tiles
 
     def spawn(self, val=None, pos=None):
-        # Spawn number (random if None) on empty cell in grid
-        # 90% chance for 2, 10% chance for 4
+        # Spawn number on a cell in the grid
         val = val if val is not None else 2 if randrange(100) <= 90 else 4
         i, j = pos if pos is not None else choice(self.free_tiles())
         self.grid[i][j] = val
@@ -67,6 +83,7 @@ class Grid:
     def update(self, move):
         def move_row_left(row):
             def tighten(_row):
+
                 # TODO: omskriv + giv credit
                 # TODO: https://github.com/Fennay/python-study/blob/master/2048/2048.py
 
@@ -129,14 +146,14 @@ class Grid:
                 moves.append(move)
         return moves
 
+    def largest_number(self):
+        return max(map(max, self.grid))
+
+    def contains(self, val):
+        return any(val in row for row in self.grid)
+
     def is_goal_state(self):
         return any(any(i >= 2048 for i in row) for row in self.grid)
-
-    def largest_number(self):
-        return max(map(max,self.grid))
-
-    def contains(self,val):
-        return any(val in row for row in self.grid)
 
     def game_over(self):
         return len(self.available_moves()) == 0

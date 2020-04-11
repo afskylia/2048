@@ -1,0 +1,11 @@
+--- depth: 4 , prune 4s: False  ---
+Avg. score: 15842.8, wins: 2
+
+ --- depth: 4 , prune 4s: True  ---
+Avg. score: 12989.6, avg speed: 0.0 moves/second, wins: 1
+
+ --- depth: 5 , prune 4s: False  ---
+Avg. score: 15041.6, avg speed: 0.0 moves/second, wins: 1
+
+ --- depth: 5 , prune 4s: True  ---
+Avg. score: 19986.0, avg speed: 0.0 moves/second, wins: 4

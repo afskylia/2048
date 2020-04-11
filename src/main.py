@@ -1,4 +1,3 @@
-from functools import reduce
 import sys
 from random import choice
 from time import sleep
@@ -23,139 +22,137 @@ def fold(fun, grid):
 
     def col_inv(_fun, _grid): return row_inv(_fun, [list(row) for row in zip(*_grid)])
 
-    grid = grid.grid
-    return row_fun(fun, grid) + row_inv(fun, grid) + col(fun, grid) + col_inv(fun, grid)
+    return row_fun(fun, grid.grid) + row_inv(fun, grid.grid) + col(fun, grid.grid) + col_inv(fun, grid.grid)
 
 
 # Calculates the penalty of a row based on the differences between the numbers in the row
-def row_score(row):
+def monotony_score(row):
     penalty = 0
-    monotony_score = 0  # Increases when there are more of the same number next to each other, e.g. [2,2,16,2]=4
+    # bonus = 0  # Increases when there are more of the same number next to each other, e.g. [2,2,16,2]=4
 
     for x in range(len(row)):
         next_x = x
         while next_x < len(row) - 1:
             next_x += 1
             if row[next_x] != 0:
-                if row[next_x] == row[x]:
-                    monotony_score += row[x] * 2
-                penalty += abs(row[x] - row[next_x])
+                # if row[next_x] == row[x]:
+                #     bonus += row[x] ** 2
+                penalty += abs(row[x] - row[next_x]) ** 2
                 break
-    return penalty - monotony_score
+    return penalty
 
 
-def utility(grid):
+def utility(grid, new_utility=False):
     # TODO: i denne implementation roteres vægtmatricen tilsyneladende nogle gange:
     #  http://kstrandby.github.io/2048-Helper/
+    snake_bonus, edge_bonus, merge_bonus = 0, 0, 0
+    for n in range(grid.size):
+        for m in range(grid.size):
+            val = grid.grid[n][m]
+            weight = grid.weights[n][m]
+            # Bonus for following the 'snake' formation
+            snake_bonus += weight * val
 
-    score = 0
+            # Bonus if largest numbers are on edge
+            if grid.largest_number() == val and (n == 0 or n == 3 or m == 0 or m == 3):
+                edge_bonus += val * weight / 2
 
-    # Rewards grids for following the 'snake' formation
-    for i in range(grid.size):
-        for j in range(grid.size):
-            score += game.weights[i][j] * grid.grid[i][j]
+            # Bonus for potential merges
+            for neighbor in grid.neighbors((n, m)):
+                if neighbor == val:
+                    merge_bonus += val * weight
 
-    # Penalize grids with low monotony
-    grid_penalty = fold(row_score, grid)
+    if not new_utility:
+        return snake_bonus
+    else:
+        # Bonus for having empty tiles
+        empty_bonus = 1 + len(grid.free_tiles())
 
-    # Rewards grids with many free tiles
-    score += len(grid.free_tiles()) ** grid.size
+        # Penalize grids with low monotony
+        monotony_penalty = 1 + fold(monotony_score, grid)
 
-    score /= grid.size  # TODO: Not sure if this does anything
-    return score - grid_penalty
+        # print("UTILITY: Snake bonus: {}, empty bonus: {}, edge bonus: {}, merge bonus: {}, monotony penalty: {}"
+        #       .format(snake_bonus,
+        #               empty_bonus,
+        #               edge_bonus,
+        #               merge_bonus,
+        #               -monotony_penalty))
+        score = ((snake_bonus + edge_bonus + merge_bonus) * edge_bonus) - monotony_penalty ** 2
+        return score
 
 
-def expectimax(grid, agent, depth, prune4=False):
+def expectimax(grid, agent, depth, prune4=False, new_utility=False):
     # TODO: credit http://iamkush.me/an-artificial-intelligence-for-the-2048-game/
 
     if grid.game_over():
         return -1, None
     if depth == 0:
-        return utility(grid), None
+        score = utility(grid, new_utility)
+        return score, None
 
     if agent == 'BOARD':
         score = 0
 
-        if len(grid.free_tiles()) == 0:
-            return -100000, None
-
         for tile in grid.top_free_tiles(depth):
             new_grid = grid.clone()
             new_grid.spawn(2, tile)
-            score += 0.9 * expectimax(new_grid, 'PLAYER', depth - 1)[0]
+            score += 0.9 * expectimax(new_grid, 'PLAYER', depth - 1, prune4, new_utility)[0]
 
             if not prune4:
                 new_grid = grid.clone()
                 new_grid.spawn(4, tile)
-                score += 0.1 * expectimax(new_grid, 'PLAYER', depth - 1)[0]
+                score += 0.1 * expectimax(new_grid, 'PLAYER', depth - 1, prune4, new_utility)[0]
 
-        return score / len(grid.top_free_tiles(depth)), None
+        # FIXME
+        return score / (len(grid.top_free_tiles(depth)) + 1), None
+        # return score, None
 
     elif agent == 'PLAYER':
         if len(grid.available_moves()) == 1:
             return grid.score, grid.available_moves()[0]
-
         score = 0
         best_move = None
-
         for move in grid.available_moves():
             new_grid = grid.clone()
             new_grid.update(move)
-            res = expectimax(new_grid, 'BOARD', depth - 1)[0]
+            res = expectimax(new_grid, 'BOARD', depth - 1, prune4, new_utility)[0]
             if res >= score:
                 score = res
                 best_move = move
-
         return score, best_move
 
 
 def simulate(grid, runs):
-    tot = 0
+    total = 0
     for r in range(runs):
         sim = grid.clone()
         while not (sim.game_over() or sim.is_goal_state()):
             sim.update(choice(sim.available_moves()))
-        tot = tot + sim.score
-    return tot / (2 * runs)
+        total = total + sim.score
+    return total / (2 * runs)
 
 
-def monteCarlo(grid):
-    new_grid = grid.clone()
-    scores = []
-    for move in grid.available_moves():
-        score = 0
-        new_grid.update(move)
-        for tile in new_grid.free_tiles():
-            new_grid.spawn(2, tile)
-            score = score + simulate(new_grid, 30) * 0.9
-            new_grid.spawn(4, tile)
-            score = score + simulate(new_grid, 30) * 0.1
-        scores.append((move, score))
-    if not grid.game_over():
-        bestM = scores[0][0]
-        bestS = scores[0][1]
-        for i in range(len(scores)):
-            if scores[i][1] > bestS:
-                bestS = scores[i][1]
-                bestM = scores[i][0]
-        return bestM
-    return None
-
-
-def run_game(depth=5, prune4=False):
+def run_game(depth=5, prune4=False, dynamic_depth=False, new_utility=False):
     expectimax_enabled = True
-    expectimax_moves = 0
+    halfway = False
+
+    # Filter events to enqueue - we only care if the user presses an arrow key
+    pygame.event.set_blocked(None)
+    pygame.event.set_allowed(pygame.KEYDOWN)
+    pygame.event.set_allowed(QUIT)
+    pygame.event.clear()
 
     while True:
+        if dynamic_depth and not halfway:
+            if game.grid.contains(1024):
+                halfway = True
+                depth += 1
         if expectimax_enabled and not pygame.event.peek():
-            event = pygame.event.Event(KEYDOWN)
-            # size = len(game.grid.free_tiles())
-            # depth = depth-1 if size >= 7 else depth+1 if size <= 2 else depth
-            event.key = expectimax(game.grid, 'PLAYER', depth, prune4)[1]
+            event = pygame.event.Event(KEYDOWN, {})
 
+            event.key = expectimax(game.grid, 'PLAYER', depth, prune4, new_utility)[1]
             if event.key is None:
                 event.key = choice(game.grid.available_moves())
-            expectimax_moves += 1
         else:
             event = pygame.event.wait()
 
@@ -164,28 +161,31 @@ def run_game(depth=5, prune4=False):
         elif event.type == KEYDOWN:
             if event.key in MOVES:
                 if game.grid.update(event.key):  # Move successful
-                    game.draw_grid()
+                    game.draw()
             else:  # Toggle expectimax
                 expectimax_enabled ^= True
+
         if game.grid.game_over():
             return game.grid
 
 
 if __name__ == "__main__":
-    configs = [(4, False), (4, True), (5, False), (5, True)]
+    configs = [(4, True, True, True), (5, True, True, True), (5, False, False, True), (5, False, False, False)]
+    # configs = [(4, False, False), (4, True, False), (5, True, False), (5, False, True), (5, True, True)]
+
     for config in configs:
         wins = 0
         totScore = 0
         print("Running config: " + str(config))
         for i in range(10):
             game = Game(4)  # Reset the game state and GUI
-            resulting_grid = run_game(config[0], config[1])  # The resulting game state
+            resulting_grid = run_game(config[0], config[1], config[2], config[3])  # The resulting game state
             totScore += resulting_grid.score
             if resulting_grid.is_goal_state():
                 wins += 1
-            print("{0} game #{1} with score {2}".format(("Won" if resulting_grid.is_goal_state() else "Lost"), i,
-                                                        resulting_grid.score))
+            print("{} game #{} with score {}".format(
+                ("Won" if resulting_grid.is_goal_state() else "Lost"), i + 1, resulting_grid.score))
 
-        print(" --- depth: ", config[0], ", prune 4s: ", config[1], " ---")
-        print("Avg. score: ", totScore / 10, ", wins: ", wins)
-    sleep(10)
+        print(" ##### depth: {}, prune 4s: {}, dynamic_depth: {} #####".format(config[0], config[1], config[2]))
+        print("Avg. score: {}, wins: {}".format(totScore / 10, wins))
+        sleep(10)
