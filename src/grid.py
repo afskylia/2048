@@ -12,6 +12,7 @@ def invert(grid):
     return [row[::-1] for row in grid]
 
 
+# Object containing the game state (grid) and different functions for manipulating the grid
 class Grid:
     def __init__(self, size, score=0, grid=None):
         self.size = size
@@ -81,16 +82,11 @@ class Grid:
         self.grid[i][j] = val
 
     def update(self, move):
-        def move_row_left(row):
-            def tighten(_row):
+        # Updates the grid in the specified direction
 
-                # TODO: omskriv + giv credit
-                # TODO: https://github.com/Fennay/python-study/blob/master/2048/2048.py
-
-                new_row = [i for i in _row if i != 0]
-                new_row += [0 for i in range(len(_row) - len(new_row))]
-                return new_row
-
+        # Inspiration for implementation of the merge_left(row) function has been taken from:
+        # https://github.com/Fennay/python-study/blob/master/2048/2048.py
+        def merge_left(row):
             def merge(_row):
                 pair = False
                 new_row = []
@@ -107,9 +103,14 @@ class Grid:
                             new_row.append(_row[i])
                 return new_row
 
-            return tighten(merge(tighten(row)))
+            def remove_empty_tiles(_row):
+                new_row = [i for i in _row if i != 0]
+                new_row += [0 for i in range(len(_row) - len(new_row))]
+                return new_row
 
-        moves = {K_LEFT: lambda grid: [move_row_left(row) for row in grid]}
+            return remove_empty_tiles(merge(remove_empty_tiles(row)))
+
+        moves = {K_LEFT: lambda grid: [merge_left(row) for row in grid]}
         moves[K_RIGHT] = lambda grid: invert(moves[K_LEFT](invert(grid)))
         moves[K_UP] = lambda grid: transpose(moves[K_LEFT](transpose(grid)))
         moves[K_DOWN] = lambda grid: transpose(moves[K_RIGHT](transpose(grid)))
