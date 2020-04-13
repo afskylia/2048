@@ -115,15 +115,27 @@ def run_game(depth=5, prune4=False, dynamic_depth=False, new_utility=False):
 
 
 if __name__ == "__main__":
-    configs = [(5, True, False, True)]
+    cycles = 1
+
+    args = sys.argv[1:]
+    configs = []
+
+    if len(args) == 0:
+        configs.append((5, True, False, False))  # Default configuration
+    elif len(args) == 5:
+        cycles = int(args[4])
+        configs.append((args[0], args[1], args[2], args[3]))
+    else:
+        print("Invalid number of arguments")
+        sys.exit()
 
     for config in configs:
         wins = 0
         totScore = 0
         print("Running config: " + str(config))
-        for i in range(10):
+        for i in range(cycles):
             game = Game(4)  # Reset the game state and GUI
-            resulting_grid = run_game(config[0], config[1], config[2], config[3])  # The resulting game state
+            resulting_grid = run_game(int(config[0]), config[1], config[2], config[3])  # The resulting game state
             totScore += resulting_grid.score
             if resulting_grid.is_goal_state():
                 wins += 1
